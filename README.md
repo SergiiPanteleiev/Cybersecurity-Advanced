@@ -125,7 +125,9 @@ cat .info
 ```
 
 За допомогою **binary-to-text декодера** ми отримали **другий флаг**.  
-- https://www.rapidtables.com/convert/number/binary-to-ascii.html
+```plaintext
+https://www.rapidtables.com/convert/number/binary-to-ascii.html
+```
 ![alt text](./Images/image11.png)
 
 📌 **Результат**:
