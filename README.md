@@ -151,6 +151,9 @@ uname -a
 ![alt text](./Images/image15.png)
 
 Завантажуємо на цільову машину використавши існуюче підключення з минулого кроку
+
+![alt text](./Images/image16.png)
+
 Далі пробуємо застосувати exploit, але отримали результат:
 ```sh
 gcc 50808.c -o exploit
@@ -169,12 +172,12 @@ gcc 50808.c -o exploit
 ```sh
 find / -perm -4000 -type f 2>/dev/null
 ```
-![alt text](./Images/image16.png)
+![alt text](./Images/image17.png)
 
 ```sh
 getcap -r / 2>/dev/null
 ```
-![alt text](./Images/image17.png)
+![alt text](./Images/image18.png)
 
 **Результат:**  
 Виявили, що `cap_dac_read_search` дозволяє читати будь-які файли!
@@ -186,7 +189,7 @@ getcap -r / 2>/dev/null
 ```sh
 ls -lah /var/backups/
 ```
-![alt text](./Images/image18.png)
+![alt text](./Images/image19.png)
 
 **Результат:**
 Знайшли файл резервної копії паролів `.old_pass.bak`.
@@ -226,7 +229,7 @@ su root
 **Результат:**
 Вхід під root виконано успішно!
 
-![alt text](./Images/image19.png)
+![alt text](./Images/image20.png)
 
 **Читання фінального прапора:**
 ```sh
@@ -234,5 +237,5 @@ cd /root
 ls -lah
 cat rOOt.txt
 ```
-![alt text](./Images/image20.png)
+![alt text](./Images/image21.png)
 
