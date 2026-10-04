@@ -106,7 +106,10 @@ http://192.168.160.252/seeddms51x/conf/settings.xml
 
 Оскільки порт `3306 (MySQL)` відкритий для зовнішніх підключень, то підключаємося до нього з **Kali Linux**, використовуючи знайдені дані:
 ```sh
-mysql -u seeddms -p -h 192.168.160.252 --ssl=0 
+mysql -u seeddms -p -h 192.168.160.252 --ssl=0
+```
+або
+```sh
 mysql -u seeddms -p -h 192.168.160.252 -p --skip-ssl
 ```
 ![alt text](./Images/image13.png)
